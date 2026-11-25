@@ -5,3 +5,285 @@ date: today
 format: html
 ---
 
+### Question and data (15%)
+
+- [ ] The blog post provides context and background for the question
+- [ ] The data are explained using text and figures
+- [ ] The theorized causal relationships are described with a DAG
+
+Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change (i.e. MHW-caused damage). Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
+
+```{mermaid}
+flowchart LR
+  %% Water temp affects nutrient and prey availability for predator species
+  water_temp --> species_richness
+  %% PH affects nutrient and prey availability for predator species
+  pH --> species_richness
+  %% MPA_status affects fishing/harvesting/outside access which impacts species richness
+  MPA_status --> species_richness
+  %% Pollution can make water more or less acidic depending on the pollution type
+  pollution --> pH
+  %% Pollution can introduce poisons to the ecosystem
+  pollution --> species_richness
+  %% Climate change effects can reduce the number of species
+  climate change --> species_richness
+  %% Climate change effects can increase water temp
+  climate change --> water_temp
+```
+
+Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. Water temp (w/ 38% missing data) and climate change/MHW (through years and dates) are in my dataset.
+
+Question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? Resistance defined as less change in the observed statistic (biomass/fish count or type count/pct canopy) from before (2011-2013) to during (2014-2016) and during to after (2017-2019).
+
+### Statistical model (35%)
+
+- [ ] The statistical model is explained conceptually and using formal statistical notation
+- [ ] The choice of model is justified based on the characteristics of the data and model assumptions
+- [ ] Potential limitations of the model and data are considered
+
+```{r}
+# Load packages
+library(tidyverse)
+library(here)
+library(ggpubr)
+```
+
+```{r}
+# Load data
+# Fish transect-level survey
+fish_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_fish.1.11.csv'))
+# Site table (MPA status)
+site_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_site_table.1.11.csv'))
+# Taxa table (Classcode definition)
+taxa_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_taxon_table.1.11.csv'))
+```
+
+```{r}
+# Find columns to merge on btwn fish and site dfs
+shared_cols_fish <- intersect(colnames(fish_df), colnames(site_df))
+print(shared_cols_fish)
+
+# Filter sites df before join
+site_filt_df <- site_df |> 
+                filter((campus == "UCSB") & ((site_status == "mpa") | (site_status == "reference"))) |> 
+                group_by(site) |>  
+                slice(1) |> 
+                ungroup() |> 
+                select(site, MPA_Name, mpa_type, site_status)
+
+# Merge mpa status to fish df
+fish_mpa_df <- fish_df |> 
+                # Filter to relevant years
+                filter((survey_year >= 2011) & (survey_year <= 2019) & (campus == "UCSB")) |> 
+                # Remove unecessary and duplicate columns
+                select(-campus,-year,-method) |> 
+                # Calculate species richness (number of taxa per transect per obs. date)
+                summarise(species_richness = n(),
+                          .by = c(survey_year,month,day,site,zone,level,transect)) |> 
+                # Join to site_filt_df
+                inner_join(site_filt_df,
+                           by = join_by(site)
+                           ) |> 
+                # Create MHW year categories
+                mutate(MHW_Category = ifelse(
+                            (survey_year >= 2014 & survey_year <= 2016),
+                            "During",
+                            ifelse(
+                                (survey_year >= 2017),
+                                "After",
+                                "Before"
+                            )
+                ))
+```
+
+```{r}
+# Plot bar plot for "Before" MHW
+plt1 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "Before") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "Before MHW (2011-2013)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Plot bar plot for "During" MHW
+plt2 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "During") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "During MHW (2014-2016)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Plot bar plot for "After" MHW
+plt3 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "After") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "After MHW (2017-2019)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Arrange plts in one figure
+figure = ggarrange(plt1,plt2,plt3, nrow = 1, ncol = 3, common.legend = TRUE, legend = "bottom")
+annotate_figure(figure, top = "MPA Status and Taxa Species Richness")
+```
+**Figure 1:** Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.
+
+Scientific Hypothesis: Kelp forests in long-term MPAs in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
+
+Statistical H_null: MPA status had no effect on species richness before, during, or after the 2014-2017 MHW in Southern California.
+
+Statistical H_alt: Kelp forests in Southern California MPAs had less change in species richness before, during, and after the 2014-2016 MHW compared to unprotected Southern California kelp forests.
+
+1. Visualize the data
+2. Fit the model
+3. Interpret the coefficients
+4. Convert log counts to counts
+5. Visualize the predictions
+
+## Visualize the data
+
+Each row is one site. `species_richness` is the number of species found there. `NLCD500m` is the proportion of land within 500 m covered by impervious surfaces (roads, roofs, parking lots).
+
+What does the response look like? Since these are discrete counts, use a bar plot.
+
+```{r}
+ggplot(bees, aes(x = exotic.richness)) +
+  geom_bar() +
+  labs(x = "Exotic bee species", y = "Number of sites")
+```
+
+Plot species richness against impervious surface. With whole-number counts, a little vertical jitter keeps points from overlapping.
+
+```{r}
+ggplot(bees, aes(x = impervious, y = exotic.richness)) +
+  geom_point(
+    position = position_jitter(height = 0.2, width = 0),
+    shape = 21,
+    size = 2
+  ) +
+  labs(x = "% impervious surface", y = "Exotic bee species")
+```
+
+## Fit the model
+
+Our model in statistical notation is:
+
+$$
+\begin{aligned}
+\text{ExoticRichness} &\sim \text{Poisson}(\lambda) \\
+\log(\lambda) &= \beta_0 + \beta_1 \text{PctImpervious}
+\end{aligned}
+$$
+
+Use `glm()` to fit a Poisson regression. Compared to logistic regression, two things change:
+
+1. The _distribution_ of the response. For counts, use the `poisson` family.
+2. The _link_ function. For the Poisson, use the log.
+
+```{r}
+bee_glm <- glm(exotic.richness ~ impervious, family = poisson(link = "log"), data = bees)
+```
+
+## Interpret the coefficients
+
+```{r}
+summary(bee_glm)
+```
+
+Each percentage point of impervious surface changes the _log_ of the expected number of exotic species by 0.0125.
+
+Exponentiate the coefficients to put them on the count scale.
+
+```{r}
+exp(coef(bee_glm))
+```
+
+Each percentage point of impervious surface _multiplies_ the expected number of exotic species by 1.0126 (1.3% increase). 
+
+## Convert log counts to counts
+
+First, create a _prediction grid_ covering the range of the predictor.
+
+```{r}
+bee_pred_grid <- tibble(
+  impervious = seq(0,100,length.out=101)
+)
+```
+
+Next, use `predict()` to get the expected number of exotic species, $\lambda$. `type = "response"` gives $\lambda$; `type = "link"` would give $\log(\lambda)$.
+
+```{r}
+bee_pred_grid$lambda <- predict(
+  bee_glm,
+  type = 'response',
+  newdata = bee_pred_grid
+)
+```
+
+## Visualize the predictions
+
+Overlay the expected counts on the raw data.
+
+```{r}
+ggplot(bees, aes(x = impervious, y = exotic.richness)) +
+  geom_point(
+    position = position_jitter(height = 0.1, width = 0),
+    shape = 21,
+    size = 2
+  ) +
+  geom_line(
+    aes(y = lambda),
+    data = bee_pred_grid,
+    color = "cornflowerblue",
+    linewidth = 2
+  ) +
+  labs(x = "% impervious surface", y = "Exotic bee species")
+```
+
+### Inference (35%)
+
+- [ ] Hypotheses are stated in plain language and with visualizations
+- [ ] Model estimates are presented with appropriate uncertainty
+- [ ] A hypothesis is tested and the evidence is interpreted
+
+### Professionalism (15%)
+
+- [ ] The overall appearance of the blog post (e.g., figures, code outputs) is portfolio-quality
+- [ ] The writing is comprehensible to a technical audience
+- [ ] The project repository is well-organized and appropriately documented
+
+## Data
+
+The data used in this analysis can be accessed here:
+
+Mark H. Carr, Jennifer E. Caselle, Daniel P. Malone, Avrey Parsons-Field, & Katelin D. Seeto. (2026). PISCO Kelp Forest Community Surveys. PISCO MN. [doi:10.6085/AA/PISCO_kelpforest.1.11](https://doi.org/10.6085/AA/PISCO_kelpforest.1.11).
+
+## References
+
+California Department of Fish and Wildlife. (2022). California's Marine Protected Area Network: Decadal management review [Report]. [https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=209209&&inline](https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=209209&&inline)
+
+[EDS222](https://eds-222-stats-f26.github.io/) - [UCSB MEDS 2027](https://bren.ucsb.edu/masters-programs/master-environmental-data-science)
+
+Jansen, C. (2023, February 1). Utilising kelp forests for carbon sequestration. Earth.Org. [https://earth.org/kelp-forests-carbon-sequestration/](https://earth.org/kelp-forests-carbon-sequestration/)
+
+Kelp Forest Alliance. (2024). 2.0 Kelp ecosystem services. In State of the world's kelp report. [https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services/](https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services/)
+
+Ober, H. (2025, August 26). Marine protected areas keep California's kelp resilient against rising water temperatures, scientists find. UCLA Newsroom. [https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change](https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change)
+
+Ortiz-Villa, E. M., Rassweiler, A., Caselle, J. E., Cavanaugh, K. C., Arafeh-Dalmau, N., Bell, T. W., & Cavanaugh, K. C. (2025). Marine protected areas enhance climate resilience to severe marine heatwaves for kelp forests. Journal of Applied Ecology, 62, 2439–2453. [https://doi.org/10.1111/1365-2664.70112](https://doi.org/10.1111/1365-2664.70112)
+
+Smith, J. G., et al. (2023). A marine protected area network does not confer community structure resilience to a marine heatwave across coastal ecosystems. Global Change Biology, 29, 5634–5651. [https://doi.org/10.1111/gcb.16862](https://doi.org/10.1111/gcb.16862)

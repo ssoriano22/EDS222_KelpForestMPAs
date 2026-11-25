@@ -4,6 +4,8 @@
 
 This repository contains files related to the final blog post assignment for EDS222, part of the UCSB MEDS 2027 graduate program. In this project, statistical analyses are performed to assess the effect of Marine Protected Areas (MPAs) on Southern California kelp forest resilience to marine heat waves (MHWs).
 
+The blog post can be accessed here: [https://ssoriano22.github.io/EDS222_KelpForestMPAs/reports/blog-post.html]
+
 The below directory tree maps out the layout of this repository:
 
 ```
