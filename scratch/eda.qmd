@@ -1,0 +1,192 @@
+---
+title: "Final Project Week 2: Exploratory Data Analysis"
+subtitle: "Kelp Forest..."
+author: "Sophia Soriano"
+date: "11 October 2026"
+format: html
+---
+
+## 1. Your question
+
+1. What environmental question are you curious about? State it in one sentence.
+
+Did California kelp forests in marine protected areas (MPAs) have better resilience to the 2014-2017 marine heat wave (MHW) than unprotected California kelp forests? [Resilience defined as less change between before , during, and after the MHW in the observed statistic.]
+
+2. Why does this question matter, and to whom? Who would make a different decision depending on the answer?
+
+Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change (i.e. MHW-caused damage). Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
+
+
+3. What do you already know about this topic? Name at least one source (e.g., a paper, report, or news article) that gives context for your question.
+
+Most of what I know is synthesized in question 2 above from the following articles. I also referenced notes taken during a guest lecturer's - Dr. Cori Lopazanski's - presentation on this subject on Wednesday October 7, 2026 in our EDS 242 class. Generally I've been doing research related to MPA origin and purpose, the 2014-2017 MHW event, kelp forest importance, and possible metrics by which to define a resilience or recovery statistic.
+
+[https://earth.org/kelp-forests-carbon-sequestration/](https://earth.org/kelp-forests-carbon-sequestration/)
+
+[https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services](https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services)
+
+[https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change](https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change)
+
+[https://nmsmarineprotectedareas.blob.core.windows.net/marineprotectedareas-prod/media/docs/2020-mpa-building-effective-conservation-networks.pdf](https://nmsmarineprotectedareas.blob.core.windows.net/marineprotectedareas-prod/media/docs/2020-mpa-building-effective-conservation-networks.pdf)
+
+[https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=209209&&inline](https://nrm.dfg.ca.gov/FileHandler.ashx?DocumentID=209209&&inline)
+
+Ortiz-Villa, E. M., Rassweiler, A., Caselle, J. E., Cavanaugh, K. C., Arafeh-Dalmau, N., Bell, T. W., & Cavanaugh, K. C. (2025). Marine protected areas enhance climate resilience to severe marine heatwaves for kelp forests. Journal of Applied Ecology, 62, 2439–2453. [https://doi.org/10.1111/1365-2664.70112](https://doi.org/10.1111/1365-2664.70112)
+
+Smith, J. G., Free, C. M., Lopazanski, C., Brun, J., Anderson, C. R., Carr, M. H., Claudet, J., Dugan, J. E., Eurich, J. G., Francis, T. B., Hamilton, S. L., Mouillot, D., Raimondi, P. T., Starr, R. M., Ziegler, S. L., Nickols, K. J., & Caselle, J. E. (2023). A marine protected area network does not confer community structure resilience to a marine heatwave across coastal ecosystems. Global Change Biology, 29, 5634–5651. [https://doi.org/10.1111/gcb.16862](https://doi.org/10.1111/gcb.16862)
+
+4. What is your **response** variable? What is the main **explanatory** variable you think influences it?
+
+The response variable (as my question is currently written) is resilience - some calculated measure comparing kelp quantity and/or health (i.e. biomass, biodiversity/species count, dissolved oxygen) before and after the 2014-2017 MHW event, ideally during the event as well. The explanatory variable is MPA status (protected/(partially protected)/unprotected).
+
+> [!TIP]
+> A good question for this project is specific enough that you can imagine the figure that answers it. "How does climate change affect wildlife?" is too broad. "Has the timing of spring bird migration through California shifted over the past 30 years?" is something you can investigate.
+
+## 2. Your data
+
+1. What dataset(s) will you use to answer your question? Provide the source and a link.
+
+Mark H. Carr, Jennifer E. Caselle, Daniel P. Malone, Avrey Parsons-Field, & Katelin D. Seeto. (2026). PISCO Kelp Forest Community Surveys. PISCO MN. [doi:10.6085/AA/PISCO_kelpforest.1.11](https://doi.org/10.6085/AA/PISCO_kelpforest.1.11).
+
+2. Who collected these data, how, and why? How might the way the data were collected affect what you can learn from them?
+
+Several UCSC and UCSB scientists collected this data as part of the Partnership for Interdisciplinary Studies of Coastal Oceans (PISCO) study designed to monitor and evaluate biological and physical attributes of California and Oregon kelp forests long-term, how those attributes might be affected by MPAs, and whether changes in these attributes - due to MPA status or other events - are observed to have ecological impacts. Data was collected from 1999-09-07 to 2024-12-07.
+
+3. What does one row in your data represent (e.g., one site, one year, one sample)? How many rows are there?
+
+One row in the fish (446,881 rows) and swath (285,808 rows) datasets represents one transect-level observer count taken on a specified date of either fish (in the fish csv) or algae and invertebrates (swath csv). The site table csv matches the site in the fish and swath files to an MPA status.
+
+```{r}
+# Load packages
+library(tidyverse)
+library(here)
+```
+
+```{r}
+# Load data
+# Fish transect-level survey
+fish_df <- read_csv(here('final_project','data','PISCO_kelpforest_fish.1.11.csv'))
+# Algae/Invertebrate transect-level survey
+swath_df <- read_csv(here('final_project','data','PISCO_kelpforest_swath.1.11.csv'))
+# Site table (MPA status)
+site_df <- read_csv(here('final_project','data','PISCO_kelpforest_site_table.1.11.csv'))
+```
+
+4. Download the data and read it into R. Include the code for cleaning your data, or joining it if you have multiple sources.
+
+```{r}
+# Find columns to merge on btwn fish and site dfs
+shared_cols_fish <- intersect(colnames(fish_df), colnames(site_df))
+print(shared_cols_fish)
+# Find columns to merge on btwn swath and site dfs
+shared_cols_swath <- intersect(colnames(swath_df), colnames(site_df))
+print(shared_cols_swath)
+
+# Merge mpa status to fish df using cols found above
+fish_mpa_df <- fish_df |> inner_join(site_df,
+                                     by = join_by(campus,method,survey_year,site)
+                            )
+
+# Merge mpa status to swath df using cols found above
+swath_mpa_df <- swath_df |> inner_join(site_df,
+                                     by = join_by(campus,method,survey_year,site)
+                            )
+```
+```{r}
+# Find columns unique to fish_df
+uniq_cols_fish <- setdiff(colnames(fish_df),colnames(swath_df))
+print(uniq_cols_fish)
+# Find columns unique to swath_df
+uniq_cols_swath <- setdiff(colnames(swath_df),colnames(fish_df))
+print(uniq_cols_swath)
+```
+
+## 3. Numerical summaries
+
+1. Summarize your response and explanatory variables numerically (e.g., mean, median, standard deviation, range, counts per category).
+2. How much data is missing? Is the missingness concentrated in particular places, times, or groups? What might cause it?
+3. Are there any values that seem implausible or surprising?
+
+I don't know how to reasonably incorporate the fish and swath count _transect_ data into one dataset. Only the fish dataset has fish and temperature recorded (9% missing data), but swath has the kelp and urchin counts which are likely important to this question. I'm only going to use the swath data for the rest of this step of the assignment due to time constraints, and assume temperature categories based on the documented 2014-2017 MHW years.
+
+```{r}
+# Create MHW groups based on year column
+swath_MHW_df <- swath_mpa_df |> 
+    mutate(MHW_Category = ifelse(
+                            (year >= 2014 & year <= 2017),
+                            "During",
+                            ifelse(
+                                (year > 2017),
+                                "After",
+                                "Before"
+                            )
+    )) |> 
+    # Remove outlier site_status labels for now (NA, "N/A","MPA")
+    filter(site_status %in% c("mpa","reference"))
+
+# Aggregate counts by MHW category - probably need to account for transect-lv counts somehow later?
+# Creating ratio as described below since number of obs per MHW group are very diff...comparing just sums seems wrong
+swath_agg_df <- swath_MHW_df |> 
+    summarise(total_organism_count = sum(count), # Sum of counts in MHW category
+                num_obs = n(), # Number of counts in MHW category
+                total_organism_ratio = total_organism_count / num_obs, # Ratio of sum counts/num counts per MHW category
+                .by = c(MHW_Category, site_status)
+    )
+```
+
+## 4. Graphical summaries
+
+1. Visualize the **distribution** of your response variable. Describe its shape (e.g., symmetric, skewed, bounded by zero).
+2. Visualize the **relationship** between your response and explanatory variables. Describe what you see.
+3. Make at least one more figure that shows something about your data you think is important (e.g., variation over space or time, differences between groups, a potential confounding variable).
+
+Every figure should have informative axis labels with units and a caption explaining what it shows.
+
+```{r}
+# Plot bar plot: total algae + inverts counts by MHW Cat and MPA status
+swath_agg_df |> 
+    mutate(`MPA Status` = site_status) |> 
+    ggplot(aes(x = fct_relevel(MHW_Category, "Before","During","After"),
+                y = total_organism_count,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "Algae & Invertebrates Total Count",
+        x = "MHW Category",
+        y = "Total Organism Count")
+```
+
+```{r}
+# Plot bar plot: algae + inverts transect record counts (n()) by MHW Cat and MPA status
+swath_agg_df |> 
+    mutate(`MPA Status` = site_status) |> 
+    ggplot(aes(x = fct_relevel(MHW_Category, "Before","During","After"),
+                y = num_obs,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "Algae & Invertebrates Number Transect Observations",
+        x = "MHW Category",
+        y = "Number Transect Observations")
+```
+
+```{r}
+# Plot bar plot: total algae + inverts counts by MHW Cat and MPA status
+swath_agg_df |> 
+    mutate(`MPA Status` = site_status) |> 
+    ggplot(aes(x = fct_relevel(MHW_Category, "Before","During","After"),
+                y = total_organism_ratio,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "Algae & Invertebrates Ratio",
+        subtitle = "Ratio: Total Organism Count / Number of Transect Observations",
+        x = "MHW Category",
+        y = "Total Organism Count")
+```
+
+What these three plots tell me is:
+- I need to limit to only some of these MPA/reference comparisons that exist in all 6 categories...maybe choose some in only one geographic area (i.e. South, Central, or North California)
+- The "After" 2017 category generally has more organisms recorded per transect observation, which might skew comparisons going forward.
+- I need to figure out how to group by transect first to calculate summary statistics, but the transects do not align between fish and swath (1-14 for fish; 1-8, 21, 22 for swath).
+- I could use the taxon table to narrow down to only a few species in common in all 6 groups, but I'm not sure which species those should be in terms of ecological reasoning.

@@ -1,0 +1,192 @@
+---
+title: "Final Project Week 5: Proposal"
+subtitle: "Southern CA Kelp Forests, MPAs, and Marine Heatwaves"
+author: "Sophia Soriano"
+date: today
+format: html
+---
+
+## 1. Your question and data
+
+1. State your question in one sentence. If it changed since your exploratory analysis, briefly explain how and why.
+
+Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? Resistance defined as less change in the observed statistic (biomass/fish count or type count/pct canopy) from before (2011-2013) to during (2014-2016) and during to after (2017-2019).
+
+This is slightly more focused than my EDA question, but similar. I narrowed the scope to Southern California instead of California and Oregon, and want to narrow down to only "long-term" MPAs vs their associated reference. I've also identified more exact response variables - fish biomass, count, or type count, also possibly percent canopy (38% missing data in that column of my dataset). The year ranges for before, during, and after are also set now based on background research for the specific Southern California MHW timeline.
+
+2. In one paragraph, give the context for your question: why it matters, to whom, and what is already known about it. Cite at least **two sources** (these can be scientific literature, news articles, government reports, or any other reputable source).
+
+As climate change continues to contribute to global ocean warming, kelp forest environments remain under threat. These communities are vital to maintain, both for economic (fishing and tourism industries) and environmental (marine carbon sequestration, biodiversity, coastal protection) purposes. Generally the larger kelp species that form the backbone of these unique aquatic communities - such as Giant Kelp and Bull Kelp - require cooler water temps to survive, and the negative effects of kelp forest ecosystem decline with ocean warming have been well studied (Kelp Forest Alliance 2024, Ober 2025). However, there is ongoing research continuing to study whether California's history of MPA usage has helped protected kelp forests be more resilient to the effects of marine warming. Some of these studies have found that MPAs have helped kelp species recover more quickly from heatwave events (Ober 2025), while others have found the MPAs had no effect on the "ecological resistance" of these kelp forests (Smith 2023).
+
+Jansen, C. (2023, February 1). Utilising kelp forests for carbon sequestration. Earth.Org. [https://earth.org/kelp-forests-carbon-sequestration/](https://earth.org/kelp-forests-carbon-sequestration/)
+
+Kelp Forest Alliance. (2024). 2.0 Kelp ecosystem services. In State of the world's kelp report. [https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services/](https://kelpforestalliance.com/state-of-the-worlds-kelp-report/2-0-kelp-ecosystem-services/)
+
+Ober, H. (2025, August 26). Marine protected areas keep California's kelp resilient against rising water temperatures, scientists find. UCLA Newsroom. [https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change](https://newsroom.ucla.edu/releases/marine-protected-areas-protect-help-climate-change)
+
+Smith, J. G., et al. (2023). A marine protected area network does not confer community structure resilience to a marine heatwave across coastal ecosystems. Global Change Biology, 29, 5634–5651. [https://doi.org/10.1111/gcb.16862](https://doi.org/10.1111/gcb.16862)
+
+3. Describe your data in a few sentences: the source, who collected it and how, what one row represents, and the response variable you're most interested in.
+
+This dataset has been assembled by several UCSC and UCSB scientists, and their teams of SCUBA diver observers, as part of the PISCO kelp forest monitoring program. This program collects observational data for fish, kelp, and invertebrates (ecological and some physical attributes) from kelp forests in California and southern Oregon to track community dynamics through various events that occur over time (i.e. MHWs). One row in the main dataset I'm planning to use - the PISCO kelp forest fish data - records observed metrics for a single taxa (classcode) observed in a single transect at a specific site on a specific date. For the purposes of this proposal assignment, I'm using types of taxa observed as my response variable, but as noted earlier I'm still considering biomass or some version of a organism count.
+
+Citation: Mark H. Carr, Jennifer E. Caselle, Daniel P. Malone, Avrey Parsons-Field, & Katelin D. Seeto. (2026). PISCO Kelp Forest Community Surveys. PISCO MN. [doi:10.6085/AA/PISCO_kelpforest.1.11](https://doi.org/10.6085/AA/PISCO_kelpforest.1.11).
+
+4. Include the one figure from your exploratory analysis (or create a new one) that best shows the relationship between your response and explanatory variables.
+
+```{r}
+# Load packages
+library(tidyverse)
+library(here)
+library(ggpubr)
+```
+
+```{r}
+# Load data
+# Fish transect-level survey
+fish_df <- read_csv(here('final_project','data','PISCO_kelpforest_fish.1.11.csv'))
+# Site table (MPA status)
+site_df <- read_csv(here('final_project','data','PISCO_kelpforest_site_table.1.11.csv'))
+# Taxa table (Classcode definition)
+taxa_df <- read_csv(here('final_project','data','PISCO_kelpforest_taxon_table.1.11.csv'))
+```
+
+```{r}
+# Find columns to merge on btwn fish and site dfs
+shared_cols_fish <- intersect(colnames(fish_df), colnames(site_df))
+print(shared_cols_fish)
+
+# Filter sites df before join
+site_filt_df <- site_df |> 
+                filter((campus == "UCSB") & ((site_status == "mpa") | (site_status == "reference"))) |> 
+                group_by(site) |>  
+                slice(1) |> 
+                ungroup() |> 
+                select(site, MPA_Name, mpa_type, site_status)
+
+# Merge mpa status to fish df
+fish_mpa_df <- fish_df |> 
+                # Filter to relevant years
+                filter((survey_year >= 2011) & (survey_year <= 2019) & (campus == "UCSB")) |> 
+                # Remove unecessary and duplicate columns
+                select(-campus,-year,-method) |> 
+                # Calculate species richness (number of taxa per transect per obs. date)
+                summarise(species_richness = n(),
+                          .by = c(survey_year,month,day,site,zone,level,transect)) |> 
+                # Join to site_filt_df
+                inner_join(site_filt_df,
+                           by = join_by(site)
+                           ) |> 
+                # Create MHW year categories
+                mutate(MHW_Category = ifelse(
+                            (survey_year >= 2014 & survey_year <= 2016),
+                            "During",
+                            ifelse(
+                                (survey_year >= 2017),
+                                "After",
+                                "Before"
+                            )
+                ))
+```
+
+```{r}
+# Plot bar plot for "Before" MHW
+plt1 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "Before") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "Before MHW (2011-2013)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Plot bar plot for "During" MHW
+plt2 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "During") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "During MHW (2014-2016)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Plot bar plot for "After" MHW
+plt3 <- fish_mpa_df |> 
+    mutate(`MPA Status` = site_status) |>
+    filter(MHW_Category == "After") |> 
+    ggplot(aes(x = survey_year,
+                y = species_richness,
+                fill = `MPA Status`)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    theme_bw() +
+    labs(title = "After MHW (2017-2019)",
+         x = "Survey Year",
+         y = "Species Richness (Taxa Count)")
+
+# Arrange plts in one figure
+figure = ggarrange(plt1,plt2,plt3, nrow = 1, ncol = 3, common.legend = TRUE, legend = "bottom")
+annotate_figure(figure, top = "MPA Status and Taxa Species Richness")
+```
+**Figure 1:** Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.
+
+## 2. Causal relationships
+
+1. Draw a directed acyclic graph (DAG) of the causal relationships you think connect your explanatory variable to your response. Include at least one other variable that affects your response, and at least one potential **confounder** (a variable that affects both your explanatory and response variables). You may draw it by hand and include a photo, or use a tool like `mermaid` (see below).
+2. Explain each arrow in your DAG in one sentence. Why do you think that causal relationship exists?
+3. Which variables in your DAG are in your data? Which are not? How might the missing variables bias your results?
+
+> [!TIP]
+> Recall the Simpson's paradox example from this homework: the relationship between distance to the freeway and soil lead changed substantially once we accounted for area. A DAG is how you anticipate problems like that _before_ fitting your model.
+
+> [!TIP]
+> [Mermaid](https://quarto.org/docs/authoring/diagrams.html) is a tool for making diagrams that you can use in Quarto to make DAGs. Here's an example of a DAG where $x_1$ and $x_2$ have causal effects on $y$, and $x_2$ has an effect on $x_1$. In this example, $x_2$ is a _confounder_ of the relationship between $x_1$ and $y$.
+
+```{mermaid}
+flowchart LR
+  %% Water temp affects nutrient and prey availability for predator species
+  water_temp --> species_richness
+  %% PH affects nutrient and prey availability for predator species
+  pH --> species_richness
+  %% MPA_status affects fishing/harvesting/outside access which impacts species richness
+  MPA_status --> species_richness
+  %% Pollution can make water more or less acidic depending on the pollution type
+  pollution --> pH
+  %% Pollution can introduce poisons to the ecosystem
+  pollution --> species_richness
+  %% Climate change effects can reduce the number of species
+  climate change --> species_richness
+  %% Climate change effects can increase water temp
+  climate change --> water_temp
+```
+
+Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. Water temp (w/ 38% missing data) and climate change/MHW (through years and dates) are in my dataset.
+
+## 3. Modeling considerations
+
+1. Describe which variables you intend to include as predictors, and explain why you will use them in your model. Use your DAG to justify which variables you include and which you leave out. 
+
+I intend to use water temp or MHW category (before, during, after), and MPA status as predictors. The first two depending on my question could be mediators, MPA status potentially has an independent affect on species richness.
+
+2. What is the _type_ of your response variable? Is it continuous or discrete? If it's continuous, is it bounded on the lower or upper end, like a strictly positive variable (0, Inf) or a proportion (0, 1)? If it's discrete, is it counts or categories? The _type_ of your response variable will guide your modeling choices later, after we cover generalized linear models.
+
+My response variable - species richness - is continuous, and strictly positive (0, Inf).
+
+3. State your _scientific_ hypothesis in plain language. Then state the _statistical_ null and alternative hypotheses in terms of a specific predictor variable's coefficient in your model.
+
+Scientific Hypothesis: Kelp forests in long-term MPAs in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
+
+Statistical H_null: MPA status had no effect on species richness before, during, or after the 2014-2017 MHW in Southern California.
+
+Statistical H_alt: Kelp forests in Southern California MPAs had less change in species richness before, during, and after the 2014-2016 MHW compared to unprotected Southern California kelp forests.
+
+## 4. Questions for feedback
+
+What part of your analysis are you least sure about? What specific feedback would help you most?
+
+I am still unsure about exactly what measure of resilience to consider my response variable - species richness, biomass, or some sort of count of certain fish species - that would be "observed" or "calculated" over each time period/MHW category. I also don't know whether keeping the MHW categories as a predictor is a good idea for this assignment, or if I should find water temp data instead (there is some in this dataset, but 38% missing data in that column in the raw data file). I'm also trying to figure out which MPAs are "longer-term" to narrow my data to only those MPAs and their references.

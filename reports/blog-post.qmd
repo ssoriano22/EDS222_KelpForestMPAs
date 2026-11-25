@@ -1,0 +1,7 @@
+---
+title: "Effect of MPAs on Kelp Forest Resilience to Marine Heat Waves"
+author: "Sophia Soriano"
+date: today
+format: html
+---
+
