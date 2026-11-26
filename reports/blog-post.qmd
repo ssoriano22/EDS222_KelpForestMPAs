@@ -13,6 +13,8 @@ format: html
 
 Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change (i.e. MHW-caused damage). Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
 
+State Marine Reserve (SMR) prohibits all take or damage of marine resources, while a State Marine Conservation Area (SMCA) allows specific commercial or recreational take
+
 ```{mermaid}
 flowchart LR
   %% Water temp affects nutrient and prey availability for predator species
@@ -61,29 +63,32 @@ taxa_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_taxon_
 ```{r}
 # Find columns to merge on btwn fish and site dfs
 shared_cols_fish <- intersect(colnames(fish_df), colnames(site_df))
-print(shared_cols_fish)
+# print(shared_cols_fish)
 
 # Filter sites df before join
 site_filt_df <- site_df |> 
-                filter((campus == "UCSB") & ((site_status == "mpa") | (site_status == "reference"))) |> 
-                group_by(site) |>  
+                # Keep Southern CA sites and remove any site_status "N/A"s
+                filter((campus == "UCSB") & (site_status %in% c("mpa","reference"))) |> 
+                # Group by site (site name), site_status (site type - mpa or reference)
+                group_by(site, site_status) |>  
+                # Remove duplicate rows - only need one row per site, site_status
                 slice(1) |> 
                 ungroup() |> 
+                # Keep relevant columns in site df for mpa/ref status labeling of fish_df
                 select(site, MPA_Name, mpa_type, site_status)
 
 # Merge mpa status to fish df
 fish_mpa_df <- fish_df |> 
-                # Filter to relevant years
+                # Filter to relevant years, Southern CA
                 filter((survey_year >= 2011) & (survey_year <= 2019) & (campus == "UCSB")) |> 
                 # Remove unecessary and duplicate columns
                 select(-campus,-year,-method) |> 
-                # Calculate species richness (number of taxa per transect per obs. date)
-                summarise(species_richness = n(),
-                          .by = c(survey_year,month,day,site,zone,level,transect)) |> 
-                # Join to site_filt_df
+                # Join to site_filt_df to label mpa/ref sites
                 inner_join(site_filt_df,
                            by = join_by(site)
                            ) |> 
+                # Remove MPAs without a type (only SMR or SMCA)
+                filter(mpa_type != "N/A") |> 
                 # Create MHW year categories
                 mutate(MHW_Category = ifelse(
                             (survey_year >= 2014 & survey_year <= 2016),
@@ -93,7 +98,13 @@ fish_mpa_df <- fish_df |>
                                 "After",
                                 "Before"
                             )
-                ))
+                )) |> 
+                # Calculate species richness (row count) and total biomass_g (sum row_weight_g) per site, site_status, year, month combo
+                summarise(species_richness = n_distinct(classcode),
+                          total_biomass_g = sum(row_weight_g, na.rm = TRUE),
+                          mean_temp_C = mean(temp, na.rm = TRUE),
+                          n_transects = n_distinct(paste(day, zone, level, transect)),
+                          .by = c(survey_year, month, MPA_Name, mpa_type, MHW_Category))
 ```
 
 ```{r}
