@@ -7,16 +7,13 @@ format: html
 
 ### Question and data (15%)
 
-- [ ] The blog post provides context and background for the question
-- [ ] The data are explained using text and figures
-- [ ] The theorized causal relationships are described with a DAG
+Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
 
-Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change (i.e. MHW-caused damage). Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
-
-State Marine Reserve (SMR) prohibits all take or damage of marine resources, while a State Marine Conservation Area (SMCA) allows specific commercial or recreational take
+State Marine Reserve (SMR) prohibits all take or damage of marine resources, while a State Marine Conservation Area (SMCA) allows specific commercial or recreational take.
 
 ```{mermaid}
 flowchart LR
+  %% Create DAG
   %% Water temp affects nutrient and prey availability for predator species
   water_temp --> species_richness
   %% PH affects nutrient and prey availability for predator species
@@ -39,26 +36,25 @@ Question: Did kelp forests in Southern California long-term marine protected are
 
 ### Statistical model (35%)
 
-- [ ] The statistical model is explained conceptually and using formal statistical notation
-- [ ] The choice of model is justified based on the characteristics of the data and model assumptions
-- [ ] Potential limitations of the model and data are considered
-
 ```{r}
 # Load packages
 library(tidyverse)
 library(here)
 library(ggpubr)
 library(MASS)
+
+set.seed(222)
+set_theme(theme_bw())
 ```
 
 ```{r}
 # Load data
 # Fish transect-level survey
-fish_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_fish.1.11.csv'))
+fish_df <- read_csv(here('data','PISCO_kelpforest_fish.1.11.csv'))
 # Site table (MPA status)
-site_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_site_table.1.11.csv'))
+site_df <- read_csv(here('data','PISCO_kelpforest_site_table.1.11.csv'))
 # Taxa table (Classcode definition)
-taxa_df <- read_csv(here('EDS222_KelpForestMPAs','data','PISCO_kelpforest_taxon_table.1.11.csv'))
+taxa_df <- read_csv(here('data','PISCO_kelpforest_taxon_table.1.11.csv'))
 ```
 
 ```{r}
@@ -76,20 +72,20 @@ site_filt_df <- site_df |>
                 slice(1) |> 
                 ungroup() |> 
                 # Keep relevant columns in site df for mpa/ref status labeling of fish_df
-                select(site, MPA_Name, mpa_type, site_status)
+                dplyr::select(site, MPA_Name, mpa_type, site_status)
 
 # Merge mpa status to fish df
 fish_mpa_df <- fish_df |> 
                 # Filter to relevant years, Southern CA
                 filter((survey_year >= 2011) & (survey_year <= 2019) & (campus == "UCSB")) |> 
                 # Remove unecessary and duplicate columns
-                select(-campus,-year,-method) |> 
+                dplyr::select(-campus,-year,-method) |> 
                 # Join to site_filt_df to label mpa/ref sites
                 inner_join(site_filt_df,
                            by = join_by(site)
                            ) |> 
-                # Remove MPAs without a type (only SMR or SMCA)
-                filter(mpa_type != "N/A") |> 
+                # Remove MPAs without a type (only SMR or SMCA), also keep references
+                filter((mpa_type %in% c("SMR", "SMCA")) | (site_status == "reference")) |> 
                 # Create MHW year categories
                 mutate(MHW_Category = ifelse(
                             (survey_year >= 2014 & survey_year <= 2016),
@@ -100,28 +96,23 @@ fish_mpa_df <- fish_df |>
                                 "Before"
                             )
                 )) |> 
-                mutate(MHW_Category = factor(MHW_Category, levels = c("Before", "During", "After"))) |> 
+                mutate(MHW_Category = factor(MHW_Category, levels = c("Before", "During", "After")),
+                        site_status = factor(site_status, levels = c("reference", "mpa"))) |> 
                 # Calculate species richness (row count) and total biomass_g (sum row_weight_g) per site, site_status, year, month combo
                 summarise(species_richness = n_distinct(classcode),
                           total_biomass_g = sum(row_weight_g, na.rm = TRUE),
                           mean_temp_C = mean(temp, na.rm = TRUE),
                           n_transects = n_distinct(paste(day, zone, level, transect)),
-                          .by = c(survey_year, month, MPA_Name, mpa_type, site_status, MHW_Category))
+                          .by = c(survey_year, month, MPA_Name, mpa_type, site, site_status, MHW_Category))
 ```
 
-# Poisson - Species Richness
+# Negative Binomial - Species Richness
 
-Scientific Hypothesis: Kelp forests in long-term MPAs in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
+Scientific Hypothesis: MPA-designated Kelp forests in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
 
-Statistical H_null: MPA status had no effect on species richness before, during, or after the 2014-2017 MHW in Southern California.
+Statistical H_null: Southern California MPA and reference kelp forests experienced the same change in species richness before, during, and after the 2014-2016 MHW in Southern California.
 
-Statistical H_alt: Kelp forests in Southern California MPAs had less change in species richness before, during, and after the 2014-2016 MHW compared to unprotected Southern California kelp forests.
-
-1. Visualize the data
-2. Fit the model
-3. Interpret the coefficients
-4. Convert log counts to counts
-5. Visualize the predictions
+Statistical H_alt: Southern California MPA kelp forests had less change in species richness before, during, and after the 2014-2016 MHW compared to reference Southern California kelp forests.
 
 ## Visualize the data
 
@@ -179,8 +170,9 @@ annotate_figure(figure, top = "MPA Status and Taxa Species Richness")
 # Bar plot - distribution of species richness counts across rows (site in a month)
 ggplot(fish_mpa_df, aes(x = species_richness)) +
   geom_bar() +
-  labs(x = "Species Richness", y = "Number of sites")
+  labs(x = "Species Richness", y = "Number of site measurements")
 ```
+<!-- **Figure X:** Bar plots showing the distribution of species richness counts across site observations in a month -->
 
 ```{r}
 # Scatter plot - mean_temp_C vs species richness
@@ -197,6 +189,7 @@ fish_mpa_df |>
          y = "Species Richness / Number of Transects",
          title = "Effect of Temperature and MPA Status on Species Richness")
 ```
+**Figure 2:** Scatter plot of (monthly) mean temperature (degC) and species richness (count per transect), colored by site status (MPA or reference).
 
 ```{r}
 # Boxplot plot - MHW_Category vs species richness
@@ -208,6 +201,7 @@ fish_mpa_df |>
          y = "Species Richness / Number of Transects",
          title = "Effect of MHW and MPA Status on Species Richness")
 ```
+**Figure 3:** Boxplot of 2014-2016 marine heatwave (MHW) category (Before, During, After) and species richness (count per transect), colored by site status (MPA or reference).
 
 ## Fit the model
 
@@ -215,8 +209,8 @@ The model in statistical notation is:
 
 $$
 \begin{aligned}
-\text{SpeciesRichness} &\sim \text{Poisson}(\lambda) \\
-\log(\lambda) &= \beta_0 + \beta_1 \text{MHW} + \beta_2 \text{MPA} + \beta_3 (\text{MHW} * \text{MPA})
+\text{SpeciesRichness} &\sim \text{NegBin}(\lambda, \theta) \\
+\log(\lambda) &= \beta_0 + \beta_1 \text{(MHW = During)} + \beta_2 \text{(MHW = After)} + \beta_3 \text{(Status = MPA)} + \beta_4 (\text{(MHW = During)} * \text{(Status = MPA)} + \beta_5 \text{(MHW = After) * (Status = MPA)} + \text{log(n\_transects)})
 \end{aligned}
 $$
 
@@ -242,36 +236,38 @@ pois_disp_stat = sum(residuals(sr_p_mpa_glm)^2) / df.residual(sr_p_mpa_glm)
 ```
 
 ```{r}
-# NegBin model sumary
+# NegBin model summary
 summary(sr_nb_mpa_glm)
 ```
 
-Each percentage point of impervious surface changes the _log_ of the expected number of exotic species by 0.0125.
+For reference (unprotected) sites before the 2014-2016 MHW, we expect a log species richness of -0.205. During the MHW, log species richness at reference sites increased by 0.104 (p-value = 0.032) compared to before the MHW. After the MHW, log species richness at reference sites increased by 0.062 (p-value = 0.205) compared to before the MHW.
 
-Exponentiate the coefficients to put them on the count scale.
+For MPA sites before the MHW, they had an expected log species richness 0.086 (p-value = 0.056) above reference sites. The two interaction terms define how MPA sites changed differently in log species richness from reference sites between MHW phases: -0.108 for the change from before to during the MHW (p-value = 0.112), and -0.212 for the change from before to after the MHW (p-value = 0.002). 
 
 ```{r}
+# Exponentiate to transform back to count-scale
 exp(coef(sr_nb_mpa_glm))
 ```
 
-Each percentage point of impervious surface _multiplies_ the expected number of exotic species by 1.0126 (1.3% increase). 
+Since these log values are difficult to interpret, we can exponentiate them to get back to count values (per transect). In reference sites before the 2014-2016 MHW, the expected species richness was 0.815 species per transect, and in MPA sited before the MHW, the expected species richness was 1.09 times that value (9% higher)(p-value = 0.056).
+
+During the MHW, the species richness of reference sites was multiplied by 1.11 (11% increase compared to before the MHW) (p-value = 0.032), and after the MHW, the species richness of reference sites was only multiplied by 1.06 (6% increase compared to before the MHW) (p-value = 0.205).
+
+Concerning interations effects between MPA status and MHW phase, MPA and reference sites did not change in species richness significantly differently from before to during the MHW (0.898 times the reference before the MHW value, p-value = 0.112, 1.11 x 0.898 = 0.996 times the MPA before the MHW value). However, MPA and reference sites did change significantly differently in species richness from before to after the MHW - 0.809 times the reference change (p-value = 0.002), resulting in a ~14% decline (1.064 x 0.809 = 0.860) in MPA species richness from before to after the MHW.
 
 ## Convert log counts to counts
-
-First, create a _prediction grid_ covering the range of the predictor.
 
 ```{r}
 # Create prediction grid with all possible predictor combos, all to predict a species richness count in 1 transect
 sr_mpa_pred_grid <- expand_grid(
   MHW_Category = factor(c("Before", "During", "After"), levels = c("Before", "During", "After")),
-  site_status = c("mpa","reference"),
+  site_status = factor(c("reference","mpa"), levels = c("reference","mpa")),
   n_transects = 1
 )
 ```
 
-Next, use `predict()` to get the expected species richness, $\lambda$. `type = "response"` gives $\lambda$; `type = "link"` would give $\log(\lambda)$.
-
 ```{r}
+# Use predictor grid to generate species_richness predictions using NegBin model
 sr_mpa_pred_grid$lambda <- predict(
   sr_nb_mpa_glm,
   type = 'response',
@@ -281,8 +277,6 @@ sr_mpa_pred_grid$lambda <- predict(
 
 ## Visualize the predictions
 
-Overlay the expected counts on the raw data.
-
 ```{r}
 # Boxplot plot - MHW_Category vs species richness
 
@@ -290,36 +284,41 @@ sr_mpa_pred_grid$`Site Status` <- sr_mpa_pred_grid$site_status
 
 fish_mpa_df |> 
   mutate(`Site Status` = site_status) |> 
-  ggplot(aes(x = MHW_Category, y = species_richness/n_transects, fill = `Site Status`)) +
-    geom_boxplot(alpha = 0.5, position = position_dodge(width = 0.75)) +
-  geom_line(
-    data = sr_mpa_pred_grid,
-    aes(y = lambda, group = `Site Status`, color = `Site Status`),
-    position = position_dodge(width = 0.75),
-    linewidth = 1.2
-  ) +
-  geom_point(
-    data = sr_mpa_pred_grid,
-    aes(y = lambda, group = `Site Status`, color = `Site Status`),
-    position = position_dodge(width = 0.75),
-    size = 3.5
-  ) +
-    labs(x = "MHW Category",
-         y = "Species Richness / Number of Transects",
-         title = "Effect of MHW and MPA Status on Species Richness")
+  ggplot(aes(x = MHW_Category, y = species_richness/n_transects, color = `Site Status`)) +
+  # Plot raw data as points
+    geom_point(
+      position = position_jitterdodge(jitter.width = 0.15, dodge.width = 0.6),
+      alpha = 0.25,
+      size = 1.8
+    ) +
+    # Plot predictions as larger points
+    geom_point(
+      data = sr_mpa_pred_grid,
+      aes(y = lambda, fill = `Site Status`),
+      position = position_dodge(width = 0.6),
+      size = 3.8,
+      shape = 21,
+      color = "black"
+    ) +
+      labs(x = "MHW Category",
+          y = "Species Richness / Number of Transects",
+          title = "Effect of MHW and MPA Status on Species Richness")
 ```
+**Figure 4:** Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.
 
-### Inference (35%)
+**Table 1: Log-Scale coefficients and count-scale values from the model.**
+| Term | Log Estimate (beta) | exp(beta) | p-value |
+| ---- | ---- | ---- | ---- |
+| (Intercept) (beta_0) | -0.20511 | 0.8145572 | 6.64e-11 *** |
+| MHW_CategoryDuring (beta_1) | 0.10394 | 1.1095383 | 0.03186 * |
+| MHW_CategoryAfter (beta_2) | 0.06180 | 1.0637509 | 0.20526 |
+| site_statusmpa (beta_3) | 0.08570 | 1.0894835 | 0.05571 . |
+| MHW_CategoryDuring:site_statusmpa (beta_4) | -0.10799 | 0.8976390 | 0.11238 |
+| MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.8087407 | 0.00187 ** |
 
-- [ ] Hypotheses are stated in plain language and with visualizations
-- [ ] Model estimates are presented with appropriate uncertainty
-- [ ] A hypothesis is tested and the evidence is interpreted
+Given these results, two statistical conclusions can be made. First, we cannot reject the null hypothesis for resistance to the 2014-2016 MHW for MPA and reference Southern California kelp forests (comparing before to during the MHW, p-value = 0.112). While reference kelp forests did experience a slight 11% increase in species richness and MPA kelp forests largely remained at ~0.87 (0.815 x 1.06) species per transect before and during the MHW, this difference was not statistically significant at an alpha threshold of 0.05.
 
-### Professionalism (15%)
-
-- [ ] The overall appearance of the blog post (e.g., figures, code outputs) is portfolio-quality
-- [ ] The writing is comprehensible to a technical audience
-- [ ] The project repository is well-organized and appropriately documented
+The second conclusion is that we can statistically reject the null hypothesis that there is no difference between the change in species richness before and after the 2014-2016 MHW, but in the opposite direction from what was anticipated. While the initial hypothesis proposed that MPA kelp forests should have less change in species richness than reference kelp forests when comparing before to after the MHW, the opposite was found to be true - there was a significant ~14% decline in species richness in MPA kelp forests from before to after the MHW that was not observed in the reference kelp forests.
 
 ## Data
 
