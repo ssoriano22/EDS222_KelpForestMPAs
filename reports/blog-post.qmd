@@ -48,6 +48,7 @@ Question: Did kelp forests in Southern California long-term marine protected are
 library(tidyverse)
 library(here)
 library(ggpubr)
+library(MASS)
 ```
 
 ```{r}
@@ -99,13 +100,32 @@ fish_mpa_df <- fish_df |>
                                 "Before"
                             )
                 )) |> 
+                mutate(MHW_Category = factor(MHW_Category, levels = c("Before", "During", "After"))) |> 
                 # Calculate species richness (row count) and total biomass_g (sum row_weight_g) per site, site_status, year, month combo
                 summarise(species_richness = n_distinct(classcode),
                           total_biomass_g = sum(row_weight_g, na.rm = TRUE),
                           mean_temp_C = mean(temp, na.rm = TRUE),
                           n_transects = n_distinct(paste(day, zone, level, transect)),
-                          .by = c(survey_year, month, MPA_Name, mpa_type, MHW_Category))
+                          .by = c(survey_year, month, MPA_Name, mpa_type, site_status, MHW_Category))
 ```
+
+# Poisson - Species Richness
+
+Scientific Hypothesis: Kelp forests in long-term MPAs in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
+
+Statistical H_null: MPA status had no effect on species richness before, during, or after the 2014-2017 MHW in Southern California.
+
+Statistical H_alt: Kelp forests in Southern California MPAs had less change in species richness before, during, and after the 2014-2016 MHW compared to unprotected Southern California kelp forests.
+
+1. Visualize the data
+2. Fit the model
+3. Interpret the coefficients
+4. Convert log counts to counts
+5. Visualize the predictions
+
+## Visualize the data
+
+Each row is contains measurements at a single site in a single month. `species_richness` is the number of species recorded in the month at that site. `mean_temp_C` is the mean water temperature in degrees C for that month at that site. 
 
 ```{r}
 # Plot bar plot for "Before" MHW
@@ -153,66 +173,77 @@ annotate_figure(figure, top = "MPA Status and Taxa Species Richness")
 ```
 **Figure 1:** Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.
 
-Scientific Hypothesis: Kelp forests in long-term MPAs in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
-
-Statistical H_null: MPA status had no effect on species richness before, during, or after the 2014-2017 MHW in Southern California.
-
-Statistical H_alt: Kelp forests in Southern California MPAs had less change in species richness before, during, and after the 2014-2016 MHW compared to unprotected Southern California kelp forests.
-
-1. Visualize the data
-2. Fit the model
-3. Interpret the coefficients
-4. Convert log counts to counts
-5. Visualize the predictions
-
-## Visualize the data
-
-Each row is one site. `species_richness` is the number of species found there. `NLCD500m` is the proportion of land within 500 m covered by impervious surfaces (roads, roofs, parking lots).
-
-What does the response look like? Since these are discrete counts, use a bar plot.
-
 ```{r}
-ggplot(bees, aes(x = exotic.richness)) +
+#| include: FALSE
+
+# Bar plot - distribution of species richness counts across rows (site in a month)
+ggplot(fish_mpa_df, aes(x = species_richness)) +
   geom_bar() +
-  labs(x = "Exotic bee species", y = "Number of sites")
+  labs(x = "Species Richness", y = "Number of sites")
 ```
 
-Plot species richness against impervious surface. With whole-number counts, a little vertical jitter keeps points from overlapping.
+```{r}
+# Scatter plot - mean_temp_C vs species richness
+fish_mpa_df |> 
+  mutate(`Site Status` = site_status) |> 
+  ggplot(aes(x = mean_temp_C, y = species_richness/n_transects, fill = `Site Status`)) +
+    geom_point(
+      position = position_jitter(height = 0.2, width = 0),
+      shape = 21,
+      size = 2,
+      alpha = 0.7
+    ) +
+    labs(x = "Mean Temp (degC)",
+         y = "Species Richness / Number of Transects",
+         title = "Effect of Temperature and MPA Status on Species Richness")
+```
 
 ```{r}
-ggplot(bees, aes(x = impervious, y = exotic.richness)) +
-  geom_point(
-    position = position_jitter(height = 0.2, width = 0),
-    shape = 21,
-    size = 2
-  ) +
-  labs(x = "% impervious surface", y = "Exotic bee species")
+# Boxplot plot - MHW_Category vs species richness
+fish_mpa_df |> 
+  mutate(`Site Status` = site_status) |> 
+  ggplot(aes(x = MHW_Category, y = species_richness/n_transects, fill = `Site Status`)) +
+    geom_boxplot() +
+    labs(x = "MHW Category",
+         y = "Species Richness / Number of Transects",
+         title = "Effect of MHW and MPA Status on Species Richness")
 ```
 
 ## Fit the model
 
-Our model in statistical notation is:
+The model in statistical notation is:
 
 $$
 \begin{aligned}
-\text{ExoticRichness} &\sim \text{Poisson}(\lambda) \\
-\log(\lambda) &= \beta_0 + \beta_1 \text{PctImpervious}
+\text{SpeciesRichness} &\sim \text{Poisson}(\lambda) \\
+\log(\lambda) &= \beta_0 + \beta_1 \text{MHW} + \beta_2 \text{MPA} + \beta_3 (\text{MHW} * \text{MPA})
 \end{aligned}
 $$
 
-Use `glm()` to fit a Poisson regression. Compared to logistic regression, two things change:
-
-1. The _distribution_ of the response. For counts, use the `poisson` family.
-2. The _link_ function. For the Poisson, use the log.
+```{r}
+# Fit Poisson model: species_richness ~ mean_temp_C * site_status and offset (coef = 1) accounting for the number of transects per site measured
+sr_p_mpa_glm <- glm(species_richness ~ MHW_Category * site_status + offset(log(n_transects)), family = poisson(link = "log"), data = fish_mpa_df)
+```
 
 ```{r}
-bee_glm <- glm(exotic.richness ~ impervious, family = poisson(link = "log"), data = bees)
+# Fit NegBin model: species_richness ~ mean_temp_C * site_status and offset (coef = 1) accounting for the number of transects per site measured
+
+sr_nb_mpa_glm <- glm.nb(species_richness ~ MHW_Category * site_status + offset(log(n_transects)), data = fish_mpa_df)
 ```
 
 ## Interpret the coefficients
 
 ```{r}
-summary(bee_glm)
+# Poisson model summary
+summary(sr_p_mpa_glm)
+# Check dispersion statistic - sum(residuals^2) / n - k
+pois_disp_stat = sum(residuals(sr_p_mpa_glm)^2) / df.residual(sr_p_mpa_glm)
+# pois_disp_stat = 4.42, much larger than 1 so data is overdispersed and NegBin will be used
+```
+
+```{r}
+# NegBin model sumary
+summary(sr_nb_mpa_glm)
 ```
 
 Each percentage point of impervious surface changes the _log_ of the expected number of exotic species by 0.0125.
@@ -220,7 +251,7 @@ Each percentage point of impervious surface changes the _log_ of the expected nu
 Exponentiate the coefficients to put them on the count scale.
 
 ```{r}
-exp(coef(bee_glm))
+exp(coef(sr_nb_mpa_glm))
 ```
 
 Each percentage point of impervious surface _multiplies_ the expected number of exotic species by 1.0126 (1.3% increase). 
@@ -230,18 +261,21 @@ Each percentage point of impervious surface _multiplies_ the expected number of 
 First, create a _prediction grid_ covering the range of the predictor.
 
 ```{r}
-bee_pred_grid <- tibble(
-  impervious = seq(0,100,length.out=101)
+# Create prediction grid with all possible predictor combos, all to predict a species richness count in 1 transect
+sr_mpa_pred_grid <- expand_grid(
+  MHW_Category = factor(c("Before", "During", "After"), levels = c("Before", "During", "After")),
+  site_status = c("mpa","reference"),
+  n_transects = 1
 )
 ```
 
-Next, use `predict()` to get the expected number of exotic species, $\lambda$. `type = "response"` gives $\lambda$; `type = "link"` would give $\log(\lambda)$.
+Next, use `predict()` to get the expected species richness, $\lambda$. `type = "response"` gives $\lambda$; `type = "link"` would give $\log(\lambda)$.
 
 ```{r}
-bee_pred_grid$lambda <- predict(
-  bee_glm,
+sr_mpa_pred_grid$lambda <- predict(
+  sr_nb_mpa_glm,
   type = 'response',
-  newdata = bee_pred_grid
+  newdata = sr_mpa_pred_grid
 )
 ```
 
@@ -250,19 +284,29 @@ bee_pred_grid$lambda <- predict(
 Overlay the expected counts on the raw data.
 
 ```{r}
-ggplot(bees, aes(x = impervious, y = exotic.richness)) +
-  geom_point(
-    position = position_jitter(height = 0.1, width = 0),
-    shape = 21,
-    size = 2
-  ) +
+# Boxplot plot - MHW_Category vs species richness
+
+sr_mpa_pred_grid$`Site Status` <- sr_mpa_pred_grid$site_status
+
+fish_mpa_df |> 
+  mutate(`Site Status` = site_status) |> 
+  ggplot(aes(x = MHW_Category, y = species_richness/n_transects, fill = `Site Status`)) +
+    geom_boxplot(alpha = 0.5, position = position_dodge(width = 0.75)) +
   geom_line(
-    aes(y = lambda),
-    data = bee_pred_grid,
-    color = "cornflowerblue",
-    linewidth = 2
+    data = sr_mpa_pred_grid,
+    aes(y = lambda, group = `Site Status`, color = `Site Status`),
+    position = position_dodge(width = 0.75),
+    linewidth = 1.2
   ) +
-  labs(x = "% impervious surface", y = "Exotic bee species")
+  geom_point(
+    data = sr_mpa_pred_grid,
+    aes(y = lambda, group = `Site Status`, color = `Site Status`),
+    position = position_dodge(width = 0.75),
+    size = 3.5
+  ) +
+    labs(x = "MHW Category",
+         y = "Species Richness / Number of Transects",
+         title = "Effect of MHW and MPA Status on Species Richness")
 ```
 
 ### Inference (35%)
