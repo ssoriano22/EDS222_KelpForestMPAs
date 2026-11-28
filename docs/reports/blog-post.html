@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Sophia Soriano">
-<meta name="dcterms.date" content="2026-11-27">
+<meta name="dcterms.date" content="2026-11-28">
 
 <title>Effect of MPAs on Kelp Forest Resilience to Marine Heat Waves</title>
 <style>
@@ -138,7 +138,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 27, 2026</p>
+      <p class="date">November 28, 2026</p>
     </div>
   </div>
   
@@ -150,10 +150,9 @@ window.Quarto = {
 </header>
 
 
-<section id="question-and-data-15" class="level3">
-<h3 class="anchored" data-anchor-id="question-and-data-15">Question and data (15%)</h3>
-<p>Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.</p>
-<p>State Marine Reserve (SMR) prohibits all take or damage of marine resources, while a State Marine Conservation Area (SMCA) allows specific commercial or recreational take.</p>
+<p>Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be a fantastic side-effect. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities (Ober, et al.&nbsp;2025; Ortiz-Villa, et al.&nbsp;2025; Smith, et al 2023). If MPAs are not actually having a positive effect on ecosystem resilience to MHWs, this needs to be identified and another type of ecosystem remediation is needed to protect essential kelp forest communities from the effects of climate change.</p>
+<p>For this analysis, species richness will be used as a surrogate measurement for ecosystem resilience. The directed acyclic diagram (DAG) in Figure 1 maps out the environmental relationships between various factors possibly affecting species richness in kelp forests. In this blog post, two predictors will be used to estimate species richness: 1) water temperature - converted into categories for before, during, and after the 2014-2016 MHW, and 2) MPA status - whether a kelp forest was in an MPA (at least partially protected from fishing activity) or reference area (unprotected). Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. While some water temperature information was available in the PISCO dataset used in this analysis, MHW categories of before, during, and were determined and used instead to avoid incorporating seasonal water temperature changes into the model’s predictions.</p>
+<p>Here, a model will be designed to answer the following question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? In this analysis, resistance defined as less change in the observed statistic (species richness) from before (2011-2013) to during (2014-2016) and after (2017-2019).</p>
 <div class="cell" data-layout-align="default">
 <div class="cell-output-display">
 <div>
@@ -172,20 +171,18 @@ window.Quarto = {
   %% Pollution can introduce poisons to the ecosystem
   pollution --&gt; species_richness
   %% Climate change effects can reduce the number of species
-  climate change --&gt; species_richness
+  climate_change[climate change] --&gt; species_richness
   %% Climate change effects can increase water temp
-  climate change --&gt; water_temp
+  climate_change --&gt; water_temp
 </pre>
 </div>
 <p></p></figure><p></p>
 </div>
 </div>
 </div>
-<p>Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. Water temp (w/ 38% missing data) and climate change/MHW (through years and dates) are in my dataset.</p>
-<p>Question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? Resistance defined as less change in the observed statistic (biomass/fish count or type count/pct canopy) from before (2011-2013) to during (2014-2016) and during to after (2017-2019).</p>
-</section>
-<section id="statistical-model-35" class="level3">
-<h3 class="anchored" data-anchor-id="statistical-model-35">Statistical model (35%)</h3>
+<p><strong>Figure 1:</strong> DAG displaying the relationships between variables, including MPA status and water temperature, related to species richness in kelp forests.</p>
+<section id="statistical-analysis" class="level2">
+<h2 class="anchored" data-anchor-id="statistical-analysis">Statistical Analysis</h2>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load packages</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -304,14 +301,13 @@ chr (43): campus, sample_type, sample_subtype, classcode, Kingdom, Phylum, C...
 <span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a>                          <span class="at">n_transects =</span> <span class="fu">n_distinct</span>(<span class="fu">paste</span>(day, zone, level, transect)),</span>
 <span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a>                          <span class="at">.by =</span> <span class="fu">c</span>(survey_year, month, MPA_Name, mpa_type, site, site_status, MHW_Category))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-</section>
-<section id="negative-binomial---species-richness" class="level1">
-<h1>Negative Binomial - Species Richness</h1>
+<section id="negative-binomial---species-richness" class="level3">
+<h3 class="anchored" data-anchor-id="negative-binomial---species-richness">Negative Binomial - Species Richness</h3>
 <p>Scientific Hypothesis: MPA-designated Kelp forests in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.</p>
 <p>Statistical H_null: Southern California MPA and reference kelp forests experienced the same change in species richness before, during, and after the 2014-2016 MHW in Southern California.</p>
 <p>Statistical H_alt: Southern California MPA kelp forests had less change in species richness before, during, and after the 2014-2016 MHW compared to reference Southern California kelp forests.</p>
-<section id="visualize-the-data" class="level2">
-<h2 class="anchored" data-anchor-id="visualize-the-data">Visualize the data</h2>
+<section id="visualize-the-data" class="level4">
+<h4 class="anchored" data-anchor-id="visualize-the-data">Visualize the data</h4>
 <p>Each row is contains measurements at a single site in a single month. <code>species_richness</code> is the number of species recorded in the month at that site. <code>mean_temp_C</code> is the mean water temperature in degrees C for that month at that site.</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot bar plot for "Before" MHW</span></span>
@@ -364,7 +360,7 @@ chr (43): campus, sample_type, sample_subtype, classcode, Kingdom, Phylum, C...
 </div>
 </div>
 </div>
-<p><strong>Figure 1:</strong> Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.</p>
+<p><strong>Figure 2:</strong> Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.</p>
 <!-- **Figure X:** Bar plots showing the distribution of species richness counts across site observations in a month -->
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Scatter plot - mean_temp_C vs species richness</span></span>
@@ -388,7 +384,7 @@ chr (43): campus, sample_type, sample_subtype, classcode, Kingdom, Phylum, C...
 </div>
 </div>
 </div>
-<p><strong>Figure 2:</strong> Scatter plot of (monthly) mean temperature (degC) and species richness (count per transect), colored by site status (MPA or reference).</p>
+<p><strong>Figure 3:</strong> Scatter plot of (monthly) mean temperature (degC) and species richness (count per transect), colored by site status (MPA or reference).</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Boxplot plot - MHW_Category vs species richness</span></span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>fish_mpa_df <span class="sc">|&gt;</span> </span>
@@ -406,10 +402,10 @@ chr (43): campus, sample_type, sample_subtype, classcode, Kingdom, Phylum, C...
 </div>
 </div>
 </div>
-<p><strong>Figure 3:</strong> Boxplot of 2014-2016 marine heatwave (MHW) category (Before, During, After) and species richness (count per transect), colored by site status (MPA or reference).</p>
+<p><strong>Figure 4:</strong> Boxplot of 2014-2016 marine heatwave (MHW) category (Before, During, After) and species richness (count per transect), colored by site status (MPA or reference).</p>
 </section>
-<section id="fit-the-model" class="level2">
-<h2 class="anchored" data-anchor-id="fit-the-model">Fit the model</h2>
+<section id="fit-the-model" class="level4">
+<h4 class="anchored" data-anchor-id="fit-the-model">Fit the model</h4>
 <p>The model in statistical notation is:</p>
 <p><span class="math display">\[
 \begin{aligned}
@@ -426,6 +422,8 @@ chr (43): campus, sample_type, sample_subtype, classcode, Kingdom, Phylum, C...
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>sr_nb_mpa_glm <span class="ot">&lt;-</span> <span class="fu">glm.nb</span>(species_richness <span class="sc">~</span> MHW_Category <span class="sc">*</span> site_status <span class="sc">+</span> <span class="fu">offset</span>(<span class="fu">log</span>(n_transects)), <span class="at">data =</span> fish_mpa_df)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
+</section>
+</section>
 </section>
 <section id="interpret-the-coefficients" class="level2">
 <h2 class="anchored" data-anchor-id="interpret-the-coefficients">Interpret the coefficients</h2>
@@ -514,9 +512,8 @@ MHW_CategoryDuring:site_statusmpa  MHW_CategoryAfter:site_statusmpa
 <p>Since these log values are difficult to interpret, we can exponentiate them to get back to count values (per transect). In reference sites before the 2014-2016 MHW, the expected species richness was 0.815 species per transect, and in MPA sited before the MHW, the expected species richness was 1.09 times that value (9% higher)(p-value = 0.056).</p>
 <p>During the MHW, the species richness of reference sites was multiplied by 1.11 (11% increase compared to before the MHW) (p-value = 0.032), and after the MHW, the species richness of reference sites was only multiplied by 1.06 (6% increase compared to before the MHW) (p-value = 0.205).</p>
 <p>Concerning interations effects between MPA status and MHW phase, MPA and reference sites did not change in species richness significantly differently from before to during the MHW (0.898 times the reference before the MHW value, p-value = 0.112, 1.11 x 0.898 = 0.996 times the MPA before the MHW value). However, MPA and reference sites did change significantly differently in species richness from before to after the MHW - 0.809 times the reference change (p-value = 0.002), resulting in a ~14% decline (1.064 x 0.809 = 0.860) in MPA species richness from before to after the MHW.</p>
-</section>
-<section id="convert-log-counts-to-counts" class="level2">
-<h2 class="anchored" data-anchor-id="convert-log-counts-to-counts">Convert log counts to counts</h2>
+<section id="convert-log-counts-to-counts" class="level4">
+<h4 class="anchored" data-anchor-id="convert-log-counts-to-counts">Convert log counts to counts</h4>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create prediction grid with all possible predictor combos, all to predict a species richness count in 1 transect</span></span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>sr_mpa_pred_grid <span class="ot">&lt;-</span> <span class="fu">expand_grid</span>(</span>
@@ -534,8 +531,8 @@ MHW_CategoryDuring:site_statusmpa  MHW_CategoryAfter:site_statusmpa
 <span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
-<section id="visualize-the-predictions" class="level2">
-<h2 class="anchored" data-anchor-id="visualize-the-predictions">Visualize the predictions</h2>
+<section id="visualize-the-predictions" class="level4">
+<h4 class="anchored" data-anchor-id="visualize-the-predictions">Visualize the predictions</h4>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Boxplot plot - MHW_Category vs species richness</span></span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -570,10 +567,65 @@ MHW_CategoryDuring:site_statusmpa  MHW_CategoryAfter:site_statusmpa
 </div>
 </div>
 </div>
-<p><strong>Figure 4:</strong> Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.</p>
-<p><strong>Table 1: Log-Scale coefficients and count-scale values from the model.</strong> | Term | Log Estimate (beta) | exp(beta) | p-value | | —- | —- | —- | —- | | (Intercept) (beta_0) | -0.20511 | 0.8145572 | 6.64e-11 *** | | MHW_CategoryDuring (beta_1) | 0.10394 | 1.1095383 | 0.03186 * | | MHW_CategoryAfter (beta_2) | 0.06180 | 1.0637509 | 0.20526 | | site_statusmpa (beta_3) | 0.08570 | 1.0894835 | 0.05571 . | | MHW_CategoryDuring:site_statusmpa (beta_4) | -0.10799 | 0.8976390 | 0.11238 | | MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.8087407 | 0.00187 ** |</p>
+<p><strong>Figure 5:</strong> Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.</p>
+<p><strong>Table 1: Log-Scale coefficients and count-scale values from the model.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Term</th>
+<th>Log Estimate (beta)</th>
+<th>exp(beta)</th>
+<th>p-value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>(Intercept) (beta_0)</td>
+<td>-0.20511</td>
+<td>0.8145572</td>
+<td>6.64e-11</td>
+</tr>
+<tr class="even">
+<td>MHW_CategoryDuring (beta_1)</td>
+<td>0.10394</td>
+<td>1.1095383</td>
+<td>0.03186</td>
+</tr>
+<tr class="odd">
+<td>MHW_CategoryAfter (beta_2)</td>
+<td>0.06180</td>
+<td>1.0637509</td>
+<td>0.20526</td>
+</tr>
+<tr class="even">
+<td>site_statusmpa (beta_3)</td>
+<td>0.08570</td>
+<td>1.0894835</td>
+<td>0.05571</td>
+</tr>
+<tr class="odd">
+<td>MHW_CategoryDuring:site_statusmpa (beta_4)</td>
+<td>-0.10799</td>
+<td>0.8976390</td>
+<td>0.11238</td>
+</tr>
+<tr class="even">
+<td>MHW_CategoryAfter:site_statusmpa (beta_5)</td>
+<td>-0.21228</td>
+<td>0.8087407</td>
+<td>0.00187</td>
+</tr>
+</tbody>
+</table>
 <p>Given these results, two statistical conclusions can be made. First, we cannot reject the null hypothesis for resistance to the 2014-2016 MHW for MPA and reference Southern California kelp forests (comparing before to during the MHW, p-value = 0.112). While reference kelp forests did experience a slight 11% increase in species richness and MPA kelp forests largely remained at ~0.87 (0.815 x 1.06) species per transect before and during the MHW, this difference was not statistically significant at an alpha threshold of 0.05.</p>
 <p>The second conclusion is that we can statistically reject the null hypothesis that there is no difference between the change in species richness before and after the 2014-2016 MHW, but in the opposite direction from what was anticipated. While the initial hypothesis proposed that MPA kelp forests should have less change in species richness than reference kelp forests when comparing before to after the MHW, the opposite was found to be true - there was a significant ~14% decline in species richness in MPA kelp forests from before to after the MHW that was not observed in the reference kelp forests.</p>
+</section>
 </section>
 <section id="data" class="level2">
 <h2 class="anchored" data-anchor-id="data">Data</h2>
@@ -590,6 +642,10 @@ MHW_CategoryDuring:site_statusmpa  MHW_CategoryAfter:site_statusmpa
 <p>Ortiz-Villa, E. M., Rassweiler, A., Caselle, J. E., Cavanaugh, K. C., Arafeh-Dalmau, N., Bell, T. W., &amp; Cavanaugh, K. C. (2025). Marine protected areas enhance climate resilience to severe marine heatwaves for kelp forests. Journal of Applied Ecology, 62, 2439–2453. <a href="https://doi.org/10.1111/1365-2664.70112">https://doi.org/10.1111/1365-2664.70112</a></p>
 <p>Smith, J. G., et al.&nbsp;(2023). A marine protected area network does not confer community structure resilience to a marine heatwave across coastal ecosystems. Global Change Biology, 29, 5634–5651. <a href="https://doi.org/10.1111/gcb.16862">https://doi.org/10.1111/gcb.16862</a></p>
 </section>
+<section id="questions-for-feedback" class="level2">
+<h2 class="anchored" data-anchor-id="questions-for-feedback">Questions for Feedback</h2>
+<p>I’m generally uncertain as to how to turn this into a blog post - something that tells more of a story. It feels like the rubric leads this to be very number and p-value-heavy in order to meet requirements, especially with including the log-scale coefficients results. And since my initial hypothesis doesn’t really match what I found - a rejected null hypothesis and significant result, but in the opposite direction from what was expected - I don’t know how to write a conclusion that fits in with the “story.”</p>
+<p>Any feedback you have on the model execution code would be great too, since I haven’t had to implement a negative binomial model before.</p>
 </section>
 
 </main>

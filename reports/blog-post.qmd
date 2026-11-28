@@ -5,11 +5,11 @@ date: today
 format: html
 ---
 
-### Question and data (15%)
+Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be a fantastic side-effect. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities (Ober, et al. 2025; Ortiz-Villa, et al. 2025; Smith, et al 2023). If MPAs are not actually having a positive effect on ecosystem resilience to MHWs, this needs to be identified and another type of ecosystem remediation is needed to protect essential kelp forest communities from the effects of climate change.
 
-Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be great. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities. If another type of ecosystem remediation is needed to protect essential kelp forest communities from MHWs, this needs to be identified.
+For this analysis, species richness will be used as a surrogate measurement for ecosystem resilience. The directed acyclic diagram (DAG) in Figure 1 maps out the environmental relationships between various factors possibly affecting species richness in kelp forests. In this blog post, two predictors will be used to estimate species richness: 1) water temperature - converted into categories for before, during, and after the 2014-2016 MHW, and 2) MPA status - whether a kelp forest was in an MPA (at least partially protected from fishing activity) or reference area (unprotected). Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. While some water temperature information was available in the PISCO dataset used in this analysis, MHW categories of before, during, and were determined and used instead to avoid incorporating seasonal water temperature changes into the model's predictions.
 
-State Marine Reserve (SMR) prohibits all take or damage of marine resources, while a State Marine Conservation Area (SMCA) allows specific commercial or recreational take.
+Here, a model will be designed to answer the following question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? In this analysis, resistance defined as less change in the observed statistic (species richness) from before (2011-2013) to during (2014-2016) and after (2017-2019).
 
 ```{mermaid}
 flowchart LR
@@ -25,16 +25,13 @@ flowchart LR
   %% Pollution can introduce poisons to the ecosystem
   pollution --> species_richness
   %% Climate change effects can reduce the number of species
-  climate change --> species_richness
+  climate_change[climate change] --> species_richness
   %% Climate change effects can increase water temp
-  climate change --> water_temp
+  climate_change --> water_temp
 ```
+**Figure 1:** DAG displaying the relationships between variables, including MPA status and water temperature, related to species richness in kelp forests.
 
-Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. Water temp (w/ 38% missing data) and climate change/MHW (through years and dates) are in my dataset.
-
-Question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? Resistance defined as less change in the observed statistic (biomass/fish count or type count/pct canopy) from before (2011-2013) to during (2014-2016) and during to after (2017-2019).
-
-### Statistical model (35%)
+## Statistical Analysis
 
 ```{r}
 # Load packages
@@ -106,7 +103,7 @@ fish_mpa_df <- fish_df |>
                           .by = c(survey_year, month, MPA_Name, mpa_type, site, site_status, MHW_Category))
 ```
 
-# Negative Binomial - Species Richness
+### Negative Binomial - Species Richness
 
 Scientific Hypothesis: MPA-designated Kelp forests in Southern California had better resilience to the 2014-2016 MHW event than unprotected Southern California kelp forests.
 
@@ -114,7 +111,7 @@ Statistical H_null: Southern California MPA and reference kelp forests experienc
 
 Statistical H_alt: Southern California MPA kelp forests had less change in species richness before, during, and after the 2014-2016 MHW compared to reference Southern California kelp forests.
 
-## Visualize the data
+#### Visualize the data
 
 Each row is contains measurements at a single site in a single month. `species_richness` is the number of species recorded in the month at that site. `mean_temp_C` is the mean water temperature in degrees C for that month at that site. 
 
@@ -162,7 +159,7 @@ plt3 <- fish_mpa_df |>
 figure = ggarrange(plt1,plt2,plt3, nrow = 1, ncol = 3, common.legend = TRUE, legend = "bottom")
 annotate_figure(figure, top = "MPA Status and Taxa Species Richness")
 ```
-**Figure 1:** Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.
+**Figure 2:** Bar plots showing fish taxa species richness (number of taxa per transect observation) in MPA and reference areas before, during, and after the 2014-2016 MHW.
 
 ```{r}
 #| include: FALSE
@@ -189,7 +186,7 @@ fish_mpa_df |>
          y = "Species Richness / Number of Transects",
          title = "Effect of Temperature and MPA Status on Species Richness")
 ```
-**Figure 2:** Scatter plot of (monthly) mean temperature (degC) and species richness (count per transect), colored by site status (MPA or reference).
+**Figure 3:** Scatter plot of (monthly) mean temperature (degC) and species richness (count per transect), colored by site status (MPA or reference).
 
 ```{r}
 # Boxplot plot - MHW_Category vs species richness
@@ -201,9 +198,9 @@ fish_mpa_df |>
          y = "Species Richness / Number of Transects",
          title = "Effect of MHW and MPA Status on Species Richness")
 ```
-**Figure 3:** Boxplot of 2014-2016 marine heatwave (MHW) category (Before, During, After) and species richness (count per transect), colored by site status (MPA or reference).
+**Figure 4:** Boxplot of 2014-2016 marine heatwave (MHW) category (Before, During, After) and species richness (count per transect), colored by site status (MPA or reference).
 
-## Fit the model
+#### Fit the model
 
 The model in statistical notation is:
 
@@ -255,7 +252,7 @@ During the MHW, the species richness of reference sites was multiplied by 1.11 (
 
 Concerning interations effects between MPA status and MHW phase, MPA and reference sites did not change in species richness significantly differently from before to during the MHW (0.898 times the reference before the MHW value, p-value = 0.112, 1.11 x 0.898 = 0.996 times the MPA before the MHW value). However, MPA and reference sites did change significantly differently in species richness from before to after the MHW - 0.809 times the reference change (p-value = 0.002), resulting in a ~14% decline (1.064 x 0.809 = 0.860) in MPA species richness from before to after the MHW.
 
-## Convert log counts to counts
+#### Convert log counts to counts
 
 ```{r}
 # Create prediction grid with all possible predictor combos, all to predict a species richness count in 1 transect
@@ -275,7 +272,7 @@ sr_mpa_pred_grid$lambda <- predict(
 )
 ```
 
-## Visualize the predictions
+#### Visualize the predictions
 
 ```{r}
 # Boxplot plot - MHW_Category vs species richness
@@ -304,17 +301,18 @@ fish_mpa_df |>
           y = "Species Richness / Number of Transects",
           title = "Effect of MHW and MPA Status on Species Richness")
 ```
-**Figure 4:** Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.
+**Figure 5:** Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.
 
 **Table 1: Log-Scale coefficients and count-scale values from the model.**
+
 | Term | Log Estimate (beta) | exp(beta) | p-value |
 | ---- | ---- | ---- | ---- |
-| (Intercept) (beta_0) | -0.20511 | 0.8145572 | 6.64e-11 *** |
-| MHW_CategoryDuring (beta_1) | 0.10394 | 1.1095383 | 0.03186 * |
+| (Intercept) (beta_0) | -0.20511 | 0.8145572 | 6.64e-11 |
+| MHW_CategoryDuring (beta_1) | 0.10394 | 1.1095383 | 0.03186 |
 | MHW_CategoryAfter (beta_2) | 0.06180 | 1.0637509 | 0.20526 |
-| site_statusmpa (beta_3) | 0.08570 | 1.0894835 | 0.05571 . |
+| site_statusmpa (beta_3) | 0.08570 | 1.0894835 | 0.05571 |
 | MHW_CategoryDuring:site_statusmpa (beta_4) | -0.10799 | 0.8976390 | 0.11238 |
-| MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.8087407 | 0.00187 ** |
+| MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.8087407 | 0.00187 |
 
 Given these results, two statistical conclusions can be made. First, we cannot reject the null hypothesis for resistance to the 2014-2016 MHW for MPA and reference Southern California kelp forests (comparing before to during the MHW, p-value = 0.112). While reference kelp forests did experience a slight 11% increase in species richness and MPA kelp forests largely remained at ~0.87 (0.815 x 1.06) species per transect before and during the MHW, this difference was not statistically significant at an alpha threshold of 0.05.
 
@@ -341,3 +339,9 @@ Ober, H. (2025, August 26). Marine protected areas keep California's kelp resili
 Ortiz-Villa, E. M., Rassweiler, A., Caselle, J. E., Cavanaugh, K. C., Arafeh-Dalmau, N., Bell, T. W., & Cavanaugh, K. C. (2025). Marine protected areas enhance climate resilience to severe marine heatwaves for kelp forests. Journal of Applied Ecology, 62, 2439–2453. [https://doi.org/10.1111/1365-2664.70112](https://doi.org/10.1111/1365-2664.70112)
 
 Smith, J. G., et al. (2023). A marine protected area network does not confer community structure resilience to a marine heatwave across coastal ecosystems. Global Change Biology, 29, 5634–5651. [https://doi.org/10.1111/gcb.16862](https://doi.org/10.1111/gcb.16862)
+
+## Questions for Feedback
+
+I'm generally uncertain as to how to turn this into a blog post - something that tells more of a story. It feels like the rubric leads this to be very number and p-value-heavy in order to meet requirements, especially with including the log-scale coefficients results. And since my initial hypothesis doesn't really match what I found - a rejected null hypothesis and significant result, but in the opposite direction from what was expected - I don't know how to write a conclusion that fits in with the "story."
+
+Any feedback you have on the model execution code would be great too, since I haven't had to implement a negative binomial model before.
