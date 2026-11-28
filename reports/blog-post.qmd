@@ -7,7 +7,7 @@ format: html
 
 Kelp forests play important roles in preserving global biodiversity, performing ocean carbon (CO2) absorption, providing biomass and nursery habitats related to the fishing industry, and protecting coastline communities from erosion effects. There is an assumption in some policy and scientific communities that MPAs - originally designed to conserve kelp forest ecosystems and rebuild fishery habitats after overfishing events - also protect these ecological communities from the effects of climate change, like marine heatwave (MHW)-caused damage. Many global communities rely on fishing economies, and if negative effects from MHWs and other climate change-related events are, in fact, being ameliorated by the existance of MPAs, that would be a fantastic side-effect. However, there appears to be disagreement in scientific and policy opinions on whether or not there is evidence that MPAs render any positive effect on California kelp forest communities (Ober, et al. 2025; Ortiz-Villa, et al. 2025; Smith, et al 2023). If MPAs are not actually having a positive effect on ecosystem resilience to MHWs, this needs to be identified and another type of ecosystem remediation is needed to protect essential kelp forest communities from the effects of climate change.
 
-For this analysis, species richness will be used as a surrogate measurement for ecosystem resilience. The directed acyclic diagram (DAG) in Figure 1 maps out the environmental relationships between various factors possibly affecting species richness in kelp forests. In this blog post, two predictors will be used to estimate species richness: 1) water temperature - converted into categories for before, during, and after the 2014-2016 MHW, and 2) MPA status - whether a kelp forest was in an MPA (at least partially protected from fishing activity) or reference area (unprotected). Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. While some water temperature information was available in the PISCO dataset used in this analysis, MHW categories of before, during, and were determined and used instead to avoid incorporating seasonal water temperature changes into the model's predictions.
+For this analysis, species richness will be used as a surrogate measurement for ecosystem resilience. The directed acyclic diagram (DAG) in Figure 1 maps out the environmental relationships between various factors possibly affecting species richness in kelp forests. In this blog post, two predictors will be used to estimate species richness: 1) water temperature - converted into categories for before, during, and after the 2014-2016 MHW, and 2) MPA status - whether a kelp forest was in an MPA (at least partially protected from fishing activity) or reference area (unprotected). Pollution and pH are not in my dataset, which could introduce bias into my results as both have potentially major effects on species survivability in kelp forests. While some water temperature information was available in the PISCO dataset used in this analysis, MHW categories of before, during, and after were determined and used instead to avoid incorporating seasonal water temperature changes into the model's predictions.
 
 Here, a model will be designed to answer the following question: Did kelp forests in Southern California long-term marine protected areas (MPAs) have better resistance to the 2014-2016 marine heatwave (MHW) than unprotected Southern California Kelp Forests? In this analysis, resistance defined as less change in the observed statistic (species richness) from before (2011-2013) to during (2014-2016) and after (2017-2019).
 
@@ -34,6 +34,9 @@ flowchart LR
 ## Statistical Analysis
 
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+
 # Load packages
 library(tidyverse)
 library(here)
@@ -45,6 +48,9 @@ set_theme(theme_bw())
 ```
 
 ```{r}
+#| warning: FALSE
+#| message: FALSE
+
 # Load data
 # Fish transect-level survey
 fish_df <- read_csv(here('data','PISCO_kelpforest_fish.1.11.csv'))
@@ -202,7 +208,29 @@ fish_mpa_df |>
 
 #### Fit the model
 
-The model in statistical notation is:
+Since species richness is count data, a Poisson model was first used to model the effect of MPA status and MHW Category on species richness:
+
+$$
+\begin{aligned}
+\text{SpeciesRichness} &\sim \text{Poisson}(\lambda) \\
+\log(\lambda) &= \beta_0 + \beta_1 \text{(MHW = During)} + \beta_2 \text{(MHW = After)} + \beta_3 \text{(Status = MPA)} + \beta_4 (\text{(MHW = During)} * \text{(Status = MPA)} + \beta_5 \text{(MHW = After) * (Status = MPA)} + \text{log(n\_transects)})
+\end{aligned}
+$$
+
+```{r}
+# Fit Poisson model: species_richness ~ MHW_Category * site_status and offset (coef = 1) accounting for the number of transects per site measured
+sr_p_mpa_glm <- glm(species_richness ~ MHW_Category * site_status + offset(log(n_transects)), family = poisson(link = "log"), data = fish_mpa_df)
+```
+
+```{r}
+# Poisson model summary
+summary(sr_p_mpa_glm)
+# Check dispersion statistic - sum(residuals^2) / n - k
+pois_disp_stat = sum(residuals(sr_p_mpa_glm)^2) / df.residual(sr_p_mpa_glm)
+# pois_disp_stat = 4.42, much larger than 1 so data is overdispersed and NegBin will be used
+```
+
+However, the dispersion statistic - calculated with sum(residuals^2) / (n - k) - resulted in a value of 4.42. Since this value is much larger than 1, the data is overdispersed, and a Negative Binomial distribution model will be used instead:
 
 $$
 \begin{aligned}
@@ -212,25 +240,12 @@ $$
 $$
 
 ```{r}
-# Fit Poisson model: species_richness ~ mean_temp_C * site_status and offset (coef = 1) accounting for the number of transects per site measured
-sr_p_mpa_glm <- glm(species_richness ~ MHW_Category * site_status + offset(log(n_transects)), family = poisson(link = "log"), data = fish_mpa_df)
-```
-
-```{r}
-# Fit NegBin model: species_richness ~ mean_temp_C * site_status and offset (coef = 1) accounting for the number of transects per site measured
+# Fit NegBin model: species_richness ~ MHW_Category * site_status and offset (coef = 1) accounting for the number of transects per site measured
 
 sr_nb_mpa_glm <- glm.nb(species_richness ~ MHW_Category * site_status + offset(log(n_transects)), data = fish_mpa_df)
 ```
 
 ## Interpret the coefficients
-
-```{r}
-# Poisson model summary
-summary(sr_p_mpa_glm)
-# Check dispersion statistic - sum(residuals^2) / n - k
-pois_disp_stat = sum(residuals(sr_p_mpa_glm)^2) / df.residual(sr_p_mpa_glm)
-# pois_disp_stat = 4.42, much larger than 1 so data is overdispersed and NegBin will be used
-```
 
 ```{r}
 # NegBin model summary
@@ -246,11 +261,11 @@ For MPA sites before the MHW, they had an expected log species richness 0.086 (p
 exp(coef(sr_nb_mpa_glm))
 ```
 
-Since these log values are difficult to interpret, we can exponentiate them to get back to count values (per transect). In reference sites before the 2014-2016 MHW, the expected species richness was 0.815 species per transect, and in MPA sited before the MHW, the expected species richness was 1.09 times that value (9% higher)(p-value = 0.056).
+Since these log values are difficult to interpret, we can exponentiate them to get back to count values (per transect). In reference sites before the 2014-2016 MHW, the expected species richness was 0.815 species per transect, and in MPA sites before the MHW, the expected species richness was 1.09 times that value (9% higher)(p-value = 0.056).
 
 During the MHW, the species richness of reference sites was multiplied by 1.11 (11% increase compared to before the MHW) (p-value = 0.032), and after the MHW, the species richness of reference sites was only multiplied by 1.06 (6% increase compared to before the MHW) (p-value = 0.205).
 
-Concerning interations effects between MPA status and MHW phase, MPA and reference sites did not change in species richness significantly differently from before to during the MHW (0.898 times the reference before the MHW value, p-value = 0.112, 1.11 x 0.898 = 0.996 times the MPA before the MHW value). However, MPA and reference sites did change significantly differently in species richness from before to after the MHW - 0.809 times the reference change (p-value = 0.002), resulting in a ~14% decline (1.064 x 0.809 = 0.860) in MPA species richness from before to after the MHW.
+Concerning interaction effects between MPA status and MHW phase, MPA and reference sites did not change in species richness significantly differently from before to during the MHW (0.898 times the reference before the MHW value, p-value = 0.112, 1.11 x 0.898 = 0.996 times the MPA before the MHW value). However, MPA and reference sites did change significantly differently in species richness from before to after the MHW - 0.809 times the reference change (p-value = 0.002), resulting in a ~14% decline (1.064 x 0.809 = 0.860) in MPA species richness from before to after the MHW.
 
 #### Convert log counts to counts
 
@@ -303,18 +318,18 @@ fish_mpa_df |>
 ```
 **Figure 5:** Expected model predictions of species richness (per transect) for MPA and reference kelp forests before, during, and after the 2014-2016 MHW presented as larger, outlined points over the raw data for each predictor category.
 
-**Table 1: Log-Scale coefficients and count-scale values from the model.**
+**Table 1:** Log-Scale coefficients and count-scale values from the model.
 
-| Term | Log Estimate (beta) | exp(beta) | p-value |
-| ---- | ---- | ---- | ---- |
-| (Intercept) (beta_0) | -0.20511 | 0.8145572 | 6.64e-11 |
-| MHW_CategoryDuring (beta_1) | 0.10394 | 1.1095383 | 0.03186 |
-| MHW_CategoryAfter (beta_2) | 0.06180 | 1.0637509 | 0.20526 |
-| site_statusmpa (beta_3) | 0.08570 | 1.0894835 | 0.05571 |
-| MHW_CategoryDuring:site_statusmpa (beta_4) | -0.10799 | 0.8976390 | 0.11238 |
-| MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.8087407 | 0.00187 |
+| Term | Log Estimate (beta) | SE | exp(beta) | p-value |
+| ---- | ---- | ---- | ---- | ---- |
+| (Intercept) (beta_0) | -0.20511 | 0.03142 | 0.8145572 | 6.64e-11 |
+| MHW_CategoryDuring (beta_1) | 0.10394 | 0.04843 | 1.1095383 | 0.03186 |
+| MHW_CategoryAfter (beta_2) | 0.06180 | 0.04879 | 1.0637509 | 0.20526 |
+| site_statusmpa (beta_3) | 0.08570 | 0.04479 | 1.0894835 | 0.05571 |
+| MHW_CategoryDuring:site_statusmpa (beta_4) | -0.10799 | 0.06802 | 0.8976390 | 0.11238 |
+| MHW_CategoryAfter:site_statusmpa (beta_5) | -0.21228 | 0.06824 | 0.8087407 | 0.00187 |
 
-Given these results, two statistical conclusions can be made. First, we cannot reject the null hypothesis for resistance to the 2014-2016 MHW for MPA and reference Southern California kelp forests (comparing before to during the MHW, p-value = 0.112). While reference kelp forests did experience a slight 11% increase in species richness and MPA kelp forests largely remained at ~0.87 (0.815 x 1.06) species per transect before and during the MHW, this difference was not statistically significant at an alpha threshold of 0.05.
+Given these results, two statistical conclusions can be made. First, we cannot reject the null hypothesis for resistance to the 2014-2016 MHW for MPA and reference Southern California kelp forests (comparing before to during the MHW, p-value = 0.112). While reference kelp forests did experience a slight 11% increase in species richness and MPA kelp forests largely remained at ~0.89 (0.815 x 1.09) species per transect before and during the MHW, this difference was not statistically significant at an alpha threshold of 0.05.
 
 The second conclusion is that we can statistically reject the null hypothesis that there is no difference between the change in species richness before and after the 2014-2016 MHW, but in the opposite direction from what was anticipated. While the initial hypothesis proposed that MPA kelp forests should have less change in species richness than reference kelp forests when comparing before to after the MHW, the opposite was found to be true - there was a significant ~14% decline in species richness in MPA kelp forests from before to after the MHW that was not observed in the reference kelp forests.
 
@@ -344,4 +359,4 @@ Smith, J. G., et al. (2023). A marine protected area network does not confer com
 
 I'm generally uncertain as to how to turn this into a blog post - something that tells more of a story. It feels like the rubric leads this to be very number and p-value-heavy in order to meet requirements, especially with including the log-scale coefficients results. And since my initial hypothesis doesn't really match what I found - a rejected null hypothesis and significant result, but in the opposite direction from what was expected - I don't know how to write a conclusion that fits in with the "story."
 
-Any feedback you have on the model execution code would be great too, since I haven't had to implement a negative binomial model before.
+Any feedback you have on the model execution code would be great too, since I haven't had to implement a negative binomial model before. Also, I'm sure there's some sort of temporal and/or spatial autocorrelation in this data after watching the videos for this week, but I have no idea how to add that in here...it just seems like more numbers to complicate the post if I account for those too?
