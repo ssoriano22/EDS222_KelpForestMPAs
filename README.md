@@ -9,7 +9,14 @@ The blog post can be accessed here: [https://ssoriano22.github.io/EDS222_KelpFor
 The below directory tree maps out the layout of this repository:
 
 ```
-TBD
+.
+├── .gitignore
+│   └── data           # All data in gitignore
+├── docs               # Contains rendered html and GitHub Pages files for blog post
+├── reports            # Contains blog post.qmd
+├── scratch            # Scratch code
+├── _quarto.yml        # YML file for quarto render format of blog post
+└── README.md
 ```
 
 ## Data
